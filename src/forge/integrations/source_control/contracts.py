@@ -162,6 +162,9 @@ class GitCredentials:
     # Enterprise Server). None for the common case (public GitHub or a CA
     # trusted by the default store).
     ca_path: str | None = None
+    # GitHub accepts ``x-access-token`` while GitLab's HTTPS token
+    # authentication convention requires ``oauth2``.
+    url_user: str = "x-access-token"
 
 
 @dataclass

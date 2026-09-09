@@ -284,6 +284,25 @@ registry, the process caches that registry for its lifetime. Restart the gateway
 and every worker after changing the file. See [operations](../operations.md)
 for the safe deployment and recovery model.
 
+GitLab repositories use explicit connections (there is no implicit GitLab
+default), which supports both GitLab.com and self-managed instances:
+
+```yaml
+connections:
+  engineering-gitlab:
+    provider: gitlab
+    base_url: https://gitlab.example.com
+    credential_env: ENGINEERING_GITLAB_TOKEN
+    webhook_secret_env: ENGINEERING_GITLAB_WEBHOOK_SECRET
+repositories:
+  payments-api:
+    provider: gitlab
+    connection: engineering-gitlab
+    namespace: platform/payments-api
+    default_branch: main
+    change_request_mode: direct
+```
+
 ## Proposal review configuration
 
 Projects can opt into GitHub pull-request review for PRDs and specifications.

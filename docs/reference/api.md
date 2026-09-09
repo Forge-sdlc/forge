@@ -73,6 +73,16 @@ Receives GitHub webhook events. Validates the signature and enqueues for async p
 
 Returns HTTP 200 immediately. Processing is asynchronous.
 
+### GitLab Webhook
+
+```http
+POST /api/v1/webhooks/gitlab
+```
+
+Receives GitLab merge-request, note, pipeline, and push events. The repository
+must be an explicit GitLab `repos.yaml` entry; `X-Gitlab-Token` must match the
+connection's `webhook_secret_env` value. Returns HTTP 202 when queued.
+
 ---
 
 ### Prometheus Metrics
