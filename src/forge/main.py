@@ -10,12 +10,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import forge.integrations.source_control.github  # noqa: F401  (registers GitHub adapter factory)
+import forge.integrations.source_control.gitlab  # noqa: F401  (registers GitLab adapter factory)
 from forge import __version__
 from forge.api.middleware.correlation import CorrelationIdMiddleware
 from forge.api.routes import (
     effects_router,
     executions_router,
     github_router,
+    gitlab_router,
     health_router,
     jira_router,
     metrics_router,
@@ -125,6 +127,10 @@ All webhook endpoints verify signatures:
                 "name": "github",
                 "description": "GitHub webhook endpoints",
             },
+            {
+                "name": "gitlab",
+                "description": "GitLab webhook endpoints",
+            },
         ],
         docs_url=None if settings.disable_openapi_docs else "/docs",
         redoc_url=None if settings.disable_openapi_docs else "/redoc",
@@ -149,6 +155,7 @@ All webhook endpoints verify signatures:
     app.include_router(effects_router)
     app.include_router(jira_router)
     app.include_router(github_router)
+    app.include_router(gitlab_router)
     app.include_router(executions_router)
     app.include_router(org_pulse_router)
 
