@@ -1639,6 +1639,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gitlab-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GitLab Webhook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prometheus-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1936,6 +1947,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#gitlab-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        GitLab Webhook
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#prometheus-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2103,9 +2125,15 @@
 <li><code>issue_comment</code> — PR comment (for <code>/forge skip-gate</code> commands)</li>
 </ul>
 <p>Returns HTTP 200 immediately. Processing is asynchronous.</p>
+<h3 id="gitlab-webhook">GitLab Webhook<a class="headerlink" href="#gitlab-webhook" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="err">POST /api/v1/webhooks/gitlab</span>
+</code></pre></div>
+<p>Receives GitLab merge-request, note, pipeline, and push events. The repository
+must be an explicit GitLab <code>repos.yaml</code> entry; <code>X-Gitlab-Token</code> must match the
+connection's <code>webhook_secret_env</code> value. Returns HTTP 202 when queued.</p>
 <hr />
 <h3 id="prometheus-metrics">Prometheus Metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="err">GET /metrics</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="err">GET /metrics</span>
 </code></pre></div>
 <p>Exposes Prometheus-format metrics for the API server.</p>
 <p><strong>Key metrics:</strong></p>
@@ -2145,8 +2173,8 @@
 as <code>FORGE_OPERATOR_TOKEN</code>. Requests without a configured token return <code>503</code>; an
 invalid or missing bearer token returns <code>401</code>. The token is never accepted as a
 query parameter.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="err">GET /api/v1/workflows/{ticket_key}/execution</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="err">GET /api/v1/workflows/{ticket_key}/execution/timeline?cursor=0&amp;limit=50</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="err">GET /api/v1/workflows/{ticket_key}/execution</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="err">GET /api/v1/workflows/{ticket_key}/execution/timeline?cursor=0&amp;limit=50</span>
 </code></pre></div>
 <p>Execution responses are versioned with <code>schema_version</code> (<code>1.0</code>). The timeline
 uses a deterministic integer cursor and returns <code>next_cursor</code> until the end;
@@ -2154,7 +2182,7 @@ clients should treat cursors as opaque offsets and request no more than 200
 entries at a time. The response is a projection of durable Forge records and
 does not consult current Jira labels.</p>
 <p>The compact contract intended for Org Pulse is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="err">GET /api/v1/org-pulse/workflows/{ticket_key}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="err">GET /api/v1/org-pulse/workflows/{ticket_key}</span>
 </code></pre></div>
 <p>It returns the execution status, current position, waiting/blocking information,
 retry count, observation freshness/conflict state, and migration eligibility.
@@ -2178,9 +2206,9 @@ request/sample histograms by design.</p>
 <p>Effect inspection and replay are deliberately separate from execution reads.
 They require <code>EFFECT_OPERATOR_TOKEN</code> as a Bearer token; the routes return <code>503</code>
 when it is unset and <code>401</code> for a missing or invalid token.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="err">GET  /api/v1/effects/workflow/{run_id}</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="err">GET  /api/v1/effects/{idempotency_key}</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="err">POST /api/v1/effects/{idempotency_key}/replay</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="err">GET  /api/v1/effects/workflow/{run_id}</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="err">GET  /api/v1/effects/{idempotency_key}</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="err">POST /api/v1/effects/{idempotency_key}/replay</span>
 </code></pre></div>
 <p>Replay is an operator recovery action. It requeues one eligible terminal effect
 using its existing idempotency identity; it does not rerun an agent or advance a

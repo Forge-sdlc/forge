@@ -1996,7 +1996,7 @@ legacy settings, and per-stage model policies.</p>
 </code></pre></div>
 <h2 id="5-configure-webhooks">5. Configure Webhooks<a class="headerlink" href="#5-configure-webhooks" title="Permanent link">&para;</a></h2>
 <p>Point Jira and GitHub webhooks at your server.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Jira</label><label for="__tabbed_1_2">GitHub</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Jira</label><label for="__tabbed_1_2">GitHub</label><label for="__tabbed_1_3">GitLab</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <p><strong>URL:</strong> <code>https://your-server.com/api/v1/webhooks/jira</code></p>
@@ -2005,6 +2005,12 @@ legacy settings, and per-stage model policies.</p>
 <div class="tabbed-block">
 <p><strong>URL:</strong> <code>https://your-server.com/api/v1/webhooks/github</code></p>
 <p><strong>Events:</strong> Pull requests, Pull request reviews, Check runs, Issue comments</p>
+</div>
+<div class="tabbed-block">
+<p><strong>URL:</strong> <code>https://your-server.com/api/v1/webhooks/gitlab</code></p>
+<p>Configure an explicit GitLab connection and repository in <code>repos.yaml</code>, then
+set its <code>webhook_secret_env</code> value as the GitLab webhook secret. Select Merge
+request, Note, Pipeline, and Push events.</p>
 </div>
 </div>
 </div>
