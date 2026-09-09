@@ -12,7 +12,29 @@ def test_default_base_url_is_gitlab_com():
     assert client.base_url == "https://gitlab.com/api/v4"
 
 
-def test_custom_base_url_and_ca_path_are_respected():
+@pytest.mark.parametrize(
+    ("configured_url", "expected_url"),
+    [
+        ("https://gitlab.example.com", "https://gitlab.example.com/api/v4"),
+        ("https://gitlab.example.com/", "https://gitlab.example.com/api/v4"),
+        (
+            "https://gitlab.example.com/gitlab",
+            "https://gitlab.example.com/gitlab/api/v4",
+        ),
+        (
+            "https://gitlab.example.com/gitlab/api/v4/",
+            "https://gitlab.example.com/gitlab/api/v4",
+        ),
+    ],
+)
+def test_custom_base_url_is_normalized_to_gitlab_v4_api(configured_url, expected_url):
+    """Catch requests sent to a GitLab HTML/path root instead of its REST API."""
+    client = GitLabClient(credential="tok", base_url=configured_url)
+
+    assert client.base_url == expected_url
+
+
+def test_custom_api_base_url_and_ca_path_are_respected():
     client = GitLabClient(
         credential="tok", base_url="https://gitlab.example.com/api/v4", ca_path="/ca.pem"
     )
@@ -282,6 +304,34 @@ class TestCreateMergeRequest:
             params={"source_branch": "feature", "state": "opened"},
         )
         assert result == [{"iid": 7, "source_branch": "feature"}]
+
+    @pytest.mark.asyncio
+    async def test_get_merge_requests_filters_by_source_project_and_target_branch(self):
+        """Catch duplicate/MR selection across fork sources or target branches."""
+        client = GitLabClient(credential="tok")
+        client._client = AsyncMock(spec=httpx.AsyncClient)
+        client._client.is_closed = False
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = [{"iid": 7, "source_branch": "feature"}]
+        client._client.get = AsyncMock(return_value=response)
+
+        await client.get_merge_requests(
+            "test/repo",
+            source_branch="feature",
+            source_project_id=123,
+            target_branch="main",
+        )
+
+        client._client.get.assert_awaited_once_with(
+            "/projects/test%2Frepo/merge_requests",
+            params={
+                "source_branch": "feature",
+                "state": "opened",
+                "source_project_id": 123,
+                "target_branch": "main",
+            },
+        )
 
 
 class TestNotesAndDiscussions:

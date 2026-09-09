@@ -172,6 +172,7 @@ def _mr_opened_payload(**overrides) -> dict:
             "url": "https://gitlab.com/test/repo/-/merge_requests/42",
             "draft": False,
             "last_commit": {"id": "abc123"},
+            "sha": "rest-response-sha",
         },
     }
     payload.update(overrides)
@@ -367,7 +368,7 @@ def test_source_project_cache_is_namespaced_per_repo(
         "source_branch": "shared-branch-name",
         "source_project_id": 200,
         "target_project_id": 100,
-        "last_commit": {"id": "shared-sha"},
+        "sha": "shared-sha",
     }
 
     gitlab_adapter_with_mock_client._map_change_request(attrs, repo_ref=repo_a)
@@ -382,6 +383,32 @@ def test_source_project_cache_is_namespaced_per_repo(
     assert (
         gitlab_adapter_with_mock_client._source_project_by_ref[("b/repo", "shared-branch-name")]
         == "300"
+    )
+
+
+def test_map_change_request_uses_rest_sha_when_last_commit_is_missing(
+    gitlab_adapter_with_mock_client: GitLabAdapter,
+    gitlab_repo_ref: RepositoryRef,
+):
+    """REST MR responses omit webhook-only last_commit but provide sha."""
+    attrs = {
+        "iid": 1,
+        "source_branch": "feature",
+        "source_project_id": 200,
+        "target_project_id": 100,
+        "sha": "rest-response-sha",
+    }
+
+    change_request = gitlab_adapter_with_mock_client._map_change_request(
+        attrs, repo_ref=gitlab_repo_ref
+    )
+
+    assert change_request.head_sha == "rest-response-sha"
+    assert (
+        gitlab_adapter_with_mock_client._source_project_by_ref[(
+            "test/repo", "rest-response-sha"
+        )]
+        == "200"
     )
 
 
@@ -716,10 +743,12 @@ class TestCreateChangeRequest:
         looked up and returned with created=False, mirroring GitHub's
         create_pull_request behavior."""
         write_target = WriteTarget(
-            clone_url="https://gitlab.com/test/repo.git",
+            clone_url="https://gitlab.com/forge-bot/repo.git",
             push_remote_name="origin",
             head_ref="forge/test/repo",
             base_branch="main",
+            fork_owner="forge-bot",
+            fork_repo="repo",
         )
         conflict_response = httpx.Response(
             409,
@@ -734,6 +763,9 @@ class TestCreateChangeRequest:
             side_effect=httpx.HTTPStatusError(
                 "409 conflict", request=conflict_response.request, response=conflict_response
             )
+        )
+        mock_gitlab_http_client.get_project = AsyncMock(
+            side_effect=[{"id": 100}, {"id": 200}]
         )
         mock_gitlab_http_client.get_merge_requests = AsyncMock(
             return_value=[
@@ -755,8 +787,15 @@ class TestCreateChangeRequest:
         )
 
         mock_gitlab_http_client.get_merge_requests.assert_awaited_once_with(
-            "test/repo", source_branch="forge/test/repo"
+            "test/repo",
+            source_branch="forge/test/repo",
+            source_project_id=200,
+            target_branch="main",
         )
+        assert mock_gitlab_http_client.get_project.await_args_list == [
+            (("test/repo",), {}),
+            (("forge-bot/repo",), {}),
+        ]
         assert cr.identity.native_id == 7
         assert cr.created is False
         assert cr.url == "https://gitlab.com/test/repo/-/merge_requests/7"
@@ -786,6 +825,7 @@ class TestCreateChangeRequest:
                 "409 conflict", request=conflict_response.request, response=conflict_response
             )
         )
+        mock_gitlab_http_client.get_project = AsyncMock(return_value={"id": 100})
         mock_gitlab_http_client.get_merge_requests = AsyncMock(return_value=[])
 
         with pytest.raises(ConflictError, match="already exists"):
@@ -1289,6 +1329,65 @@ class TestGetChecks:
         checks = await gitlab_adapter_with_mock_client.get_checks(gitlab_repo_ref, "abc123")
 
         assert checks[0].status == CheckStatus.QUEUED
+        assert checks[0].conclusion == CheckConclusion.NONE
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("gitlab_status", ["failed", "canceled", "manual"])
+    async def test_allowed_failure_terminal_status_maps_to_neutral(
+        self,
+        gitlab_adapter_with_mock_client,
+        gitlab_repo_ref,
+        mock_gitlab_http_client,
+        gitlab_status,
+    ):
+        mock_gitlab_http_client.get_commit_statuses = AsyncMock(
+            return_value=[
+                {
+                    "name": "optional-build",
+                    "status": gitlab_status,
+                    "allow_failure": True,
+                    "target_url": None,
+                }
+            ]
+        )
+
+        checks = await gitlab_adapter_with_mock_client.get_checks(gitlab_repo_ref, "abc123")
+
+        assert checks[0].status == CheckStatus.COMPLETED
+        assert checks[0].conclusion == CheckConclusion.NEUTRAL
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("gitlab_status", "allow_failure", "expected_status"),
+        [
+            ("running", False, CheckStatus.IN_PROGRESS),
+            ("pending", False, CheckStatus.QUEUED),
+            ("pending", True, CheckStatus.QUEUED),
+        ],
+    )
+    async def test_active_statuses_preserve_their_normal_mapping(
+        self,
+        gitlab_adapter_with_mock_client,
+        gitlab_repo_ref,
+        mock_gitlab_http_client,
+        gitlab_status,
+        allow_failure,
+        expected_status,
+    ):
+        mock_gitlab_http_client.get_commit_statuses = AsyncMock(
+            return_value=[
+                {
+                    "name": "build",
+                    "status": gitlab_status,
+                    "allow_failure": allow_failure,
+                    "target_url": None,
+                }
+            ]
+        )
+
+        checks = await gitlab_adapter_with_mock_client.get_checks(gitlab_repo_ref, "abc123")
+
+        assert checks[0].status == expected_status
         assert checks[0].conclusion == CheckConclusion.NONE
 
     @pytest.mark.asyncio

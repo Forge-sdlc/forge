@@ -287,6 +287,10 @@ for the safe deployment and recovery model.
 GitLab repositories use explicit connections (there is no implicit GitLab
 default), which supports both GitLab.com and self-managed instances:
 
+Set `base_url` to either the GitLab host/root URL (including any self-managed
+path prefix) or an explicit REST API v4 URL. Forge normalizes host/root URLs
+by appending `/api/v4`; explicit URLs ending in `/api/v4` are accepted as-is.
+
 ```yaml
 connections:
   engineering-gitlab:

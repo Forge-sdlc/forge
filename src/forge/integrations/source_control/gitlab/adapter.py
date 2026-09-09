@@ -100,6 +100,10 @@ def _require_native_id(identity: ChangeRequestIdentity) -> int:
     return int(identity.native_id)
 
 
+def _merge_request_head_sha(attrs: dict) -> str:
+    return (attrs.get("last_commit") or {}).get("id") or attrs.get("sha", "")
+
+
 class GitLabAdapter:
     """GitLab implementation of SourceControlProvider protocol."""
 
@@ -255,8 +259,12 @@ class GitLabAdapter:
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code != 409:
                 raise
+            source_project = await client.get_project(source_namespace)
             existing = await client.get_merge_requests(
-                repo_ref.namespace, source_branch=target.head_ref
+                repo_ref.namespace,
+                source_branch=target.head_ref,
+                source_project_id=source_project["id"],
+                target_branch=target.base_branch,
             )
             if existing:
                 logger.info(
@@ -469,7 +477,7 @@ class GitLabAdapter:
             state=_CR_STATE_MAP.get(attrs.get("state", ""), ChangeRequestState.OPEN),
             source_branch=attrs.get("source_branch", "") or "",
             target_branch=attrs.get("target_branch", "") or "",
-            head_sha=(attrs.get("last_commit") or {}).get("id", ""),
+            head_sha=_merge_request_head_sha(attrs),
             draft=attrs.get("draft", attrs.get("work_in_progress", False)),
             created=created,
         )
@@ -494,14 +502,18 @@ class GitLabAdapter:
             return
         project_ref = str(source_project_id)
         namespace = repo_ref.namespace
-        head_sha = (attrs.get("last_commit") or {}).get("id", "")
+        head_sha = _merge_request_head_sha(attrs)
         if head_sha:
             self._cache_put(self._source_project_by_ref, (namespace, head_sha), project_ref)
         source_branch = attrs.get("source_branch", "") or ""
         if source_branch:
             self._cache_put(self._source_project_by_ref, (namespace, source_branch), project_ref)
 
-    def _map_check_status(self, status: str) -> tuple[CheckStatus, CheckConclusion]:
+    def _map_check_status(
+        self, status: str, *, allow_failure: bool = False
+    ) -> tuple[CheckStatus, CheckConclusion]:
+        if allow_failure and status in {"failed", "canceled", "manual"}:
+            return CheckStatus.COMPLETED, CheckConclusion.NEUTRAL
         table = {
             "success": (CheckStatus.COMPLETED, CheckConclusion.SUCCESS),
             "failed": (CheckStatus.COMPLETED, CheckConclusion.FAILURE),
@@ -680,7 +692,9 @@ class GitLabAdapter:
         return [self._map_commit_status(entry, project_ref) for entry in entries]
 
     def _map_commit_status(self, entry: dict, project_ref: str) -> CheckRun:
-        status, conclusion = self._map_check_status(entry.get("status", ""))
+        status, conclusion = self._map_check_status(
+            entry.get("status", ""), allow_failure=entry.get("allow_failure", False)
+        )
         target_url = entry.get("target_url") or ""
         job_id = self._parse_job_id(target_url)
         if job_id is not None:

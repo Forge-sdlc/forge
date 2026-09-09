@@ -33,7 +33,12 @@ class GitLabClient:
         ca_path: str | None = None,
     ):
         self._credential = credential
-        self.base_url = base_url or _DEFAULT_API_BASE_URL
+        if base_url:
+            self.base_url = base_url.rstrip("/")
+            if not self.base_url.endswith("/api/v4"):
+                self.base_url = f"{self.base_url}/api/v4"
+        else:
+            self.base_url = _DEFAULT_API_BASE_URL
         self._ca_path = ca_path
         self._client: httpx.AsyncClient | None = None
 
@@ -163,7 +168,13 @@ class GitLabClient:
         return response.json()
 
     async def get_merge_requests(
-        self, namespace: str, *, source_branch: str, state: str = "opened"
+        self,
+        namespace: str,
+        *,
+        source_branch: str,
+        state: str = "opened",
+        source_project_id: int | None = None,
+        target_branch: str | None = None,
     ) -> list[dict[str, Any]]:
         """List merge requests for a project, filtered by source branch.
 
@@ -172,9 +183,14 @@ class GitLabClient:
         MR -- for a fork-mode MR, this is the upstream project, not the fork.
         """
         client = await self._get_client()
+        params: dict[str, str | int] = {"source_branch": source_branch, "state": state}
+        if source_project_id is not None:
+            params["source_project_id"] = source_project_id
+        if target_branch is not None:
+            params["target_branch"] = target_branch
         response = await client.get(
             f"/projects/{encode_project_id(namespace)}/merge_requests",
-            params={"source_branch": source_branch, "state": state},
+            params=params,
         )
         response.raise_for_status()
         return response.json()
